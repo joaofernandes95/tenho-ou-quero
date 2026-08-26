@@ -179,7 +179,7 @@ main{max-width:1100px;margin:0 auto;padding:14px 14px 120px}
   border-radius:var(--r-m);overflow:hidden;box-shadow:var(--shadow);
   display:flex;flex-direction:column;
 }
-.card .open{
+.card .shot,.card .info{
   display:block;width:100%;padding:0;border:0;background:transparent;text-align:left;
 }
 .card .thumb{position:relative;aspect-ratio:1;background:var(--surface-2);display:block;overflow:hidden}
@@ -226,13 +226,67 @@ main{max-width:1100px;margin:0 auto;padding:14px 14px 120px}
 /* list view */
 .grid.list{grid-template-columns:1fr;gap:8px}
 .grid.list .card{flex-direction:row;align-items:center}
-.grid.list .open{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+.grid.list .shot{width:58px;flex:none}
+.grid.list .info{flex:1;min-width:0;padding-left:11px}
 .grid.list .thumb{width:58px;height:58px;aspect-ratio:auto;flex:none;border-radius:0}
 .grid.list .body{padding:8px 0;gap:3px;min-width:0;flex:1}
 .grid.list h3{-webkit-line-clamp:1}
 .grid.list .mark{position:static;margin:0 10px 0 8px;width:36px;height:36px;flex:none;
   border-color:var(--line);background:var(--surface-2);color:var(--ink-3);backdrop-filter:none}
 .grid.list .card[data-state="have"] .mark{background:var(--have);border-color:var(--have);color:#fff}
+
+/* ---------- foto em ecrã inteiro ---------- */
+#dlgPhoto{max-width:none;width:100%;height:100%;max-height:100%;margin:0}
+#dlgPhoto::backdrop{background:#0a0d0b}
+.viewer{
+  position:relative;width:100%;height:100%;background:#0a0d0b;color:#f2f5f3;
+  display:grid;grid-template-rows:auto 1fr auto;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+}
+.viewer-top{display:flex;align-items:center;gap:10px;padding:10px 12px}
+.viewer-top .who{flex:1;min-width:0}
+.viewer-top h2{
+  margin:0;font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.viewer-top .sub{font-size:12px;color:#9aa5a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-btn{
+  width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#f2f5f3;
+}
+.v-btn svg{width:19px;height:19px}
+.v-btn:hover{background:rgba(255,255,255,.14)}
+.viewer-stage{position:relative;overflow:hidden;display:grid;place-items:center;touch-action:pan-y}
+.viewer-stage img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.viewer-stage .noimg{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:#6f7a75}
+.nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;border-radius:999px;display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.16);background:rgba(10,13,11,.55);color:#f2f5f3;
+}
+.nav svg{width:22px;height:22px}
+.nav.prev{left:8px}.nav.next{right:8px}
+.viewer-foot{display:flex;gap:10px;padding:12px 14px}
+.viewer-foot .btn{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#f2f5f3}
+.viewer-foot .btn:hover{border-color:rgba(255,255,255,.4)}
+.viewer-foot .btn.state{flex:1}
+.viewer-foot .btn.state[data-state="have"]{background:var(--have);border-color:var(--have);color:#fff}
+.counter{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:#9aa5a0;
+  align-self:center;padding:0 4px;font-variant-numeric:tabular-nums;
+}
+
+/* ---------- rodapé de armazenamento ---------- */
+.foot{
+  display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  padding:22px 4px 4px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:var(--ink-3);font-variant-numeric:tabular-nums;
+}
+.foot button{
+  border:0;background:transparent;color:var(--ink-3);font:inherit;
+  text-decoration:underline;text-underline-offset:3px;padding:2px 4px;
+}
+.foot button:hover{color:var(--ink)}
 
 /* ---------- empty ---------- */
 .empty{
@@ -385,12 +439,71 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
     <h2 id="emptyTitle"></h2>
     <p id="emptyText"></p>
   </div>
+  <div class="foot" id="foot" hidden>
+    <span id="footUsage"></span>
+    <button type="button" id="btnBackup">Cópia de segurança</button>
+  </div>
 </main>
 
 <button class="fab" id="btnAdd" type="button">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   Artigo
 </button>
+
+<!-- foto em ecrã inteiro -->
+<dialog id="dlgPhoto" aria-label="Foto do artigo">
+  <div class="viewer">
+    <div class="viewer-top">
+      <div class="who">
+        <h2 id="vName"></h2>
+        <div class="sub" id="vSub"></div>
+      </div>
+      <span class="counter" id="vCount"></span>
+      <button class="v-btn" type="button" data-close aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="viewer-stage" id="vStage">
+      <button class="nav prev" type="button" id="vPrev" aria-label="Anterior">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <button class="nav next" type="button" id="vNext" aria-label="Seguinte">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <div class="viewer-foot">
+      <button class="btn state" type="button" id="vToggle"></button>
+      <button class="btn" type="button" id="vEdit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M14 6l4 4"/></svg>
+        Editar
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<!-- cópia de segurança -->
+<dialog id="dlgBackup">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Cópia de segurança</h2>
+      <button class="mini" type="button" data-close aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint">Os dados vivem só neste telemóvel. Guarda um ficheiro de vez em quando — leva as fotos todas lá dentro.</p>
+      <button class="btn" type="button" id="btnExport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+        Guardar ficheiro
+      </button>
+      <button class="btn" type="button" id="btnImport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V9m0 0l-4 4m4-4l4 4M5 5h14"/></svg>
+        Repor de um ficheiro
+      </button>
+      <p class="hint" id="backupMsg"></p>
+    </div>
+  </div>
+</dialog>
 
 <!-- article sheet -->
 <dialog id="dlgArticle">
@@ -490,6 +603,7 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
 
 <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="fileGal" accept="image/*" hidden>
+<input type="file" id="fileRestore" accept="application/json,.json" hidden>
 
 <script>
 (function(){
@@ -538,28 +652,58 @@ function savePrefs(){
 const S={cats:[],arts:[],fState:"all",fCat:"all",view:"grid"};
 const urls=new Map();
 
-function photoURL(a){
-  if(!a.photo) return null;
-  if(!urls.has(a.id)) urls.set(a.id,URL.createObjectURL(a.photo));
-  return urls.get(a.id);
+// A grelha usa a miniatura; o ecrã inteiro usa a foto grande. Poupa memória a scrollar.
+function blobURL(key,blob){
+  if(!blob) return null;
+  if(!urls.has(key)) urls.set(key,URL.createObjectURL(blob));
+  return urls.get(key);
 }
+const thumbURL=a=> blobURL(a.id+":t", a.thumb||a.photo);
+const fullURL =a=> blobURL(a.id+":f", a.photo);
 function dropURL(id){
-  if(urls.has(id)){ URL.revokeObjectURL(urls.get(id)); urls.delete(id); }
+  for(const k of [id+":t",id+":f"]){
+    if(urls.has(k)){ URL.revokeObjectURL(urls.get(k)); urls.delete(k); }
+  }
 }
 
 /* ---------------- photo processing ---------------- */
+// WebP corta ~30% face a JPEG com a mesma qualidade visual; se o browser não souber
+// gravar WebP, toBlob devolve PNG e nós caímos para JPEG.
+async function encode(bmp,max,quality){
+  const scale=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  const w=Math.max(1,Math.round(bmp.width*scale)), h=Math.max(1,Math.round(bmp.height*scale));
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const ctx=c.getContext("2d");
+  ctx.imageSmoothingQuality="high";
+  ctx.drawImage(bmp,0,0,w,h);
+  let blob=await new Promise(r=>c.toBlob(r,"image/webp",quality));
+  if(!blob||blob.type!=="image/webp") blob=await new Promise(r=>c.toBlob(r,"image/jpeg",quality));
+  return blob;
+}
 async function shrink(file){
-  const MAX=1200;
   let bmp;
   try{ bmp=await createImageBitmap(file,{imageOrientation:"from-image"}); }
-  catch(e){ try{ bmp=await createImageBitmap(file); }catch(e2){ return file; } }
-  const scale=Math.min(1,MAX/Math.max(bmp.width,bmp.height));
-  const w=Math.round(bmp.width*scale), h=Math.round(bmp.height*scale);
-  const c=document.createElement("canvas"); c.width=w; c.height=h;
-  c.getContext("2d").drawImage(bmp,0,0,w,h);
+  catch(e){ try{ bmp=await createImageBitmap(file); }catch(e2){ return {photo:file,thumb:null}; } }
+  const photo=await encode(bmp,1400,0.80);
+  const thumb=await encode(bmp,400,0.72);
   bmp.close&&bmp.close();
-  const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.85));
-  return blob||file;
+  return {photo:photo||file, thumb};
+}
+// Cria a miniatura em falta de artigos guardados antes desta versão.
+async function makeThumb(blob){
+  try{
+    const bmp=await createImageBitmap(blob);
+    const t=await encode(bmp,400,0.72);
+    bmp.close&&bmp.close();
+    return t;
+  }catch(e){ return null; }
+}
+
+function fmtBytes(n){
+  if(n<1024) return n+" B";
+  if(n<1048576) return (n/1024).toFixed(0)+" KB";
+  if(n<1073741824) return (n/1048576).toFixed(n<10485760?1:0)+" MB";
+  return (n/1073741824).toFixed(1)+" GB";
 }
 
 /* ---------------- rendering ---------------- */
@@ -622,17 +766,19 @@ function renderGrid(){
   empty.hidden=true;
 
   const frag=document.createDocumentFragment();
-  for(const a of list){
-    const url=photoURL(a);
+  list.forEach((a,idx)=>{
+    const url=thumbURL(a);
     const tags=(a.cats||[]).map(catName).filter(Boolean).join(" · ");
     const card=document.createElement("article");
     card.className="card";
     card.dataset.state=a.state;
     card.innerHTML=
-      '<button class="open" type="button">'+
+      '<button class="shot" type="button" aria-label="Ver foto de '+esc(a.name)+'">'+
         '<span class="thumb">'+
-          (url? '<img src="'+url+'" alt="">' : '<span class="noimg">SEM FOTO</span>')+
+          (url? '<img src="'+url+'" alt="" loading="lazy" decoding="async">' : '<span class="noimg">SEM FOTO</span>')+
         '</span>'+
+      '</button>'+
+      '<button class="info" type="button" aria-label="Editar '+esc(a.name)+'">'+
         '<span class="body">'+
           '<span class="badge">'+(a.state==="have"?"Já tenho":"Quero")+'</span>'+
           '<h3>'+esc(a.name)+'</h3>'+
@@ -641,14 +787,38 @@ function renderGrid(){
       '</button>'+
       '<button class="mark" type="button" aria-pressed="'+(a.state==="have")+'" '+
         'aria-label="'+(a.state==="have"?"Marcar como quero":"Marcar como já tenho")+'">'+ICON_CHECK+'</button>';
-    card.querySelector(".open").addEventListener("click",()=>editArticle(a.id));
+    card.querySelector(".shot").addEventListener("click",()=>openViewer(idx));
+    card.querySelector(".info").addEventListener("click",()=>editArticle(a.id));
     card.querySelector(".mark").addEventListener("click",e=>toggleState(a.id,e.currentTarget));
     frag.appendChild(card);
-  }
+  });
   grid.appendChild(frag);
 }
 
-function renderAll(){ renderTally(); renderChips(); renderGrid(); }
+function renderAll(){ renderTally(); renderChips(); renderGrid(); renderFoot(); }
+
+/* ---------------- espaço ocupado ---------------- */
+async function renderFoot(){
+  const foot=$("foot");
+  if(!S.arts.length){ foot.hidden=true; return; }
+  foot.hidden=false;
+  let bytes=0;
+  for(const a of S.arts){
+    if(a.photo) bytes+=a.photo.size;
+    if(a.thumb) bytes+=a.thumb.size;
+  }
+  let txt=S.arts.length+" artigo"+(S.arts.length>1?"s":"")+" · "+fmtBytes(bytes)+" em fotos";
+  try{
+    if(navigator.storage&&navigator.storage.estimate){
+      const est=await navigator.storage.estimate();
+      if(est&&est.quota){
+        const pct=bytes/est.quota*100;
+        txt+=" · "+(pct<0.1?"menos de 0,1%":pct.toFixed(1).replace(".",",")+"%")+" do espaço do telemóvel";
+      }
+    }
+  }catch(e){}
+  $("footUsage").textContent=txt;
+}
 
 /* ---------------- actions ---------------- */
 async function toggleState(id,btn){
@@ -664,6 +834,161 @@ async function toggleState(id,btn){
   renderTally();
   if(S.fState!=="all") setTimeout(renderGrid,260);
 }
+
+/* --- foto em ecrã inteiro --- */
+const dlgPhoto=$("dlgPhoto");
+let vList=[], vIdx=0;
+
+function openViewer(idx){
+  vList=visible(); vIdx=idx;
+  if(!vList.length) return;
+  paintViewer();
+  dlgPhoto.showModal();
+}
+function paintViewer(){
+  const a=vList[vIdx]; if(!a) return;
+  const url=fullURL(a)||thumbURL(a);
+  const stage=$("vStage");
+  const old=stage.querySelector("img,.noimg");
+  if(old) old.remove();
+  const el=document.createElement(url?"img":"span");
+  if(url){ el.src=url; el.alt=a.name; }
+  else{ el.className="noimg"; el.textContent="SEM FOTO"; }
+  stage.insertBefore(el,stage.firstChild);
+
+  $("vName").textContent=a.name;
+  const tags=(a.cats||[]).map(catName).filter(Boolean).join(" · ");
+  $("vSub").textContent = tags || "Sem categoria";
+  $("vCount").textContent = vList.length>1 ? (vIdx+1)+"/"+vList.length : "";
+  $("vPrev").hidden = $("vNext").hidden = vList.length<2;
+
+  const t=$("vToggle");
+  t.dataset.state=a.state;
+  t.innerHTML = a.state==="have"
+    ? ICON_CHECK+" Já tenho"
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-7.5-9.8A4.2 4.2 0 0 1 12 8.4a4.2 4.2 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21z"/></svg> Quero';
+}
+function step(d){
+  if(vList.length<2) return;
+  vIdx=(vIdx+d+vList.length)%vList.length;
+  paintViewer();
+}
+$("vPrev").addEventListener("click",()=>step(-1));
+$("vNext").addEventListener("click",()=>step(1));
+dlgPhoto.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft") step(-1);
+  else if(e.key==="ArrowRight") step(1);
+});
+$("vEdit").addEventListener("click",()=>{
+  const a=vList[vIdx]; dlgPhoto.close(); if(a) editArticle(a.id);
+});
+$("vToggle").addEventListener("click",async()=>{
+  const a=vList[vIdx]; if(!a) return;
+  a.state = a.state==="have" ? "want" : "have";
+  await put("articles",a);
+  paintViewer(); renderTally(); renderGrid();
+});
+// deslizar o dedo para trocar de foto
+(function(){
+  const stage=$("vStage");
+  let x0=null,y0=null;
+  stage.addEventListener("touchstart",e=>{
+    if(e.touches.length!==1) return;
+    x0=e.touches[0].clientX; y0=e.touches[0].clientY;
+  },{passive:true});
+  stage.addEventListener("touchend",e=>{
+    if(x0===null) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-x0, dy=t.clientY-y0;
+    x0=null;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5) step(dx<0?1:-1);
+  },{passive:true});
+})();
+
+/* --- cópia de segurança --- */
+const dlgBackup=$("dlgBackup");
+$("btnBackup").addEventListener("click",()=>{ $("backupMsg").textContent=""; openSheet(dlgBackup); });
+
+const blobToB64=b=>new Promise((res,rej)=>{
+  const r=new FileReader();
+  r.onload=()=>res(String(r.result).split(",")[1]);
+  r.onerror=()=>rej(r.error);
+  r.readAsDataURL(b);
+});
+function b64ToBlob(b64,type){
+  const bin=atob(b64), arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:type||"image/webp"});
+}
+
+$("btnExport").addEventListener("click",async()=>{
+  const msg=$("backupMsg");
+  msg.textContent="A preparar…";
+  try{
+    const out={app:"tenho-ou-quero",v:1,at:new Date().toISOString(),categories:S.cats,articles:[]};
+    for(const a of S.arts){
+      out.articles.push({
+        id:a.id,name:a.name,cats:a.cats||[],state:a.state,createdAt:a.createdAt||null,
+        photo:a.photo?{type:a.photo.type,data:await blobToB64(a.photo)}:null,
+        thumb:a.thumb?{type:a.thumb.type,data:await blobToB64(a.thumb)}:null
+      });
+    }
+    const blob=new Blob([JSON.stringify(out)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download="colecao-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    msg.textContent="Ficheiro guardado ("+fmtBytes(blob.size)+").";
+  }catch(e){
+    msg.textContent="Não deu para guardar o ficheiro. Tenta outra vez.";
+  }
+});
+
+$("btnImport").addEventListener("click",()=>$("fileRestore").click());
+$("fileRestore").addEventListener("change",async e=>{
+  const f=e.target.files&&e.target.files[0];
+  e.target.value="";
+  if(!f) return;
+  const msg=$("backupMsg");
+  msg.textContent="A ler o ficheiro…";
+  let data;
+  try{ data=JSON.parse(await f.text()); }
+  catch(err){ msg.textContent="Esse ficheiro não é uma cópia da coleção."; return; }
+  if(!data||data.app!=="tenho-ou-quero"||!Array.isArray(data.articles)){
+    msg.textContent="Esse ficheiro não é uma cópia da coleção."; return;
+  }
+  const nA=data.articles.length, nC=(data.categories||[]).length;
+  confirmSheet("Repor cópia",
+    "Juntar <strong>"+nA+" artigo"+(nA===1?"":"s")+"</strong> e <strong>"+nC+" categoria"+(nC===1?"":"s")+"</strong> ao que já tens? "+
+    "Artigos com o mesmo id são substituídos pela versão do ficheiro; o resto fica na mesma.",
+    async()=>{
+      try{
+        for(const c of (data.categories||[])){
+          if(!c||!c.id||!c.name) continue;
+          await put("categories",{id:c.id,name:String(c.name)});
+        }
+        for(const r of data.articles){
+          if(!r||!r.id||!r.name) continue;
+          await put("articles",{
+            id:r.id,name:String(r.name),cats:Array.isArray(r.cats)?r.cats:[],
+            state:r.state==="have"?"have":"want",
+            photo:r.photo&&r.photo.data?b64ToBlob(r.photo.data,r.photo.type):null,
+            thumb:r.thumb&&r.thumb.data?b64ToBlob(r.thumb.data,r.thumb.type):null,
+            createdAt:r.createdAt||Date.now()
+          });
+          dropURL(r.id);
+        }
+        S.cats=await getAll("categories");
+        S.arts=await getAll("articles");
+        renderAll();
+        msg.textContent="Reposto: "+nA+" artigo"+(nA===1?"":"s")+".";
+      }catch(err){
+        msg.textContent="A reposição falhou a meio. O que já tinhas continua lá.";
+      }
+    });
+});
 
 /* --- article sheet --- */
 const dlgArticle=$("dlgArticle");
@@ -711,7 +1036,7 @@ $("statePick").addEventListener("click",e=>{
 });
 
 function newArticle(){
-  draft={id:null,name:"",cats:S.fCat!=="all"?[S.fCat]:[],state:S.fState==="have"?"have":"want",photo:null,previewURL:null};
+  draft={id:null,name:"",cats:S.fCat!=="all"?[S.fCat]:[],state:S.fState==="have"?"have":"want",photo:null,thumb:null,previewURL:null};
   $("artTitle").textContent="Novo artigo";
   $("artName").value="";
   $("btnDelArt").hidden=true;
@@ -720,7 +1045,7 @@ function newArticle(){
 }
 function editArticle(id){
   const a=S.arts.find(x=>x.id===id); if(!a) return;
-  draft={id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,photo:a.photo||null,previewURL:null};
+  draft={id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,photo:a.photo||null,thumb:a.thumb||null,previewURL:null};
   $("artTitle").textContent="Editar artigo";
   $("artName").value=a.name;
   $("btnDelArt").hidden=false;
@@ -736,7 +1061,8 @@ $("btnGal").addEventListener("click",()=>$("fileGal").click());
     e.target.value="";
     if(!f||!draft) return;
     $("preview").innerHTML='<span>A PROCESSAR…</span>';
-    draft.photo=await shrink(f);
+    const out=await shrink(f);
+    draft.photo=out.photo; draft.thumb=out.thumb;
     paintPreview();
   });
 });
@@ -751,6 +1077,7 @@ $("formArticle").addEventListener("submit",async e=>{
     cats:draft.cats.slice(),
     state:draft.state,
     photo:draft.photo||null,
+    thumb:draft.thumb||null,
     createdAt: draft.id ? (S.arts.find(a=>a.id===draft.id)||{}).createdAt || Date.now() : Date.now()
   };
   await put("articles",rec);
@@ -893,7 +1220,25 @@ addEventListener("appinstalled",()=>{ installPrompt=null; $("btnInstall").hidden
     b.setAttribute("aria-pressed", b.dataset.v===S.fState?"true":"false"));
   paintViewIcon();
   renderAll();
+  backfillThumbs();
 })();
+
+// Artigos guardados antes das miniaturas continuam a funcionar (a grelha cai para a foto
+// grande); isto cria a miniatura em segundo plano, sem tocar na foto original.
+async function backfillThumbs(){
+  const pend=S.arts.filter(a=>a.photo&&!a.thumb);
+  if(!pend.length) return;
+  for(const a of pend){
+    try{
+      const t=await makeThumb(a.photo);
+      if(!t) continue;
+      a.thumb=t;
+      await put("articles",a);
+      dropURL(a.id);
+    }catch(e){ /* fica na foto grande */ }
+  }
+  renderGrid(); renderFoot();
+}
 
 })();
 </script>
