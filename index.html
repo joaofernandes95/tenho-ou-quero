@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="Checklist com fotos para gerir uma coleção: já tenho ou ainda quero.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191d23" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tenho ou Quero">
+<title>Tenho ou Quero</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Public+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --ground:#eceee9;
+  --surface:#ffffff;
+  --surface-2:#f5f6f2;
+  --line:#d9dcd4;
+  --line-soft:#e6e8e2;
+  --ink:#171b21;
+  --ink-2:#4c5560;
+  --ink-3:#7c8590;
+  --have:#0f5f4a;
+  --have-soft:#dfeee7;
+  --have-ink:#0b4c3b;
+  --want:#8f5a06;
+  --want-soft:#f6ecd9;
+  --want-ink:#7a4d05;
+  --danger:#a32020;
+  --danger-soft:#f8e6e4;
+  --focus:#0f5f4a;
+  --shadow:0 1px 2px rgba(20,30,25,.06), 0 6px 18px rgba(20,30,25,.07);
+  --shadow-lift:0 4px 10px rgba(20,30,25,.10), 0 18px 40px rgba(20,30,25,.16);
+  --r-s:8px; --r-m:12px; --r-l:18px;
+  --sans:"Public Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --display:"Archivo",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#12151a;
+    --surface:#191d23;
+    --surface-2:#1f242b;
+    --line:#2c333b;
+    --line-soft:#242a31;
+    --ink:#e7ebe8;
+    --ink-2:#a3ada7;
+    --ink-3:#7a8580;
+    --have:#4fbd97;
+    --have-soft:#122c25;
+    --have-ink:#7fd8b7;
+    --want:#e0a94f;
+    --want-soft:#2e2415;
+    --want-ink:#eec27e;
+    --danger:#e97b73;
+    --danger-soft:#2e1a19;
+    --focus:#4fbd97;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+    --shadow-lift:0 4px 10px rgba(0,0,0,.45), 0 18px 40px rgba(0,0,0,.55);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#12151a;
+  --surface:#191d23;
+  --surface-2:#1f242b;
+  --line:#2c333b;
+  --line-soft:#242a31;
+  --ink:#e7ebe8;
+  --ink-2:#a3ada7;
+  --ink-3:#7a8580;
+  --have:#4fbd97;
+  --have-soft:#122c25;
+  --have-ink:#7fd8b7;
+  --want:#e0a94f;
+  --want-soft:#2e2415;
+  --want-ink:#eec27e;
+  --danger:#e97b73;
+  --danger-soft:#2e1a19;
+  --focus:#4fbd97;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  --shadow-lift:0 4px 10px rgba(0,0,0,.45), 0 18px 40px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.45;
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior-y:contain;
+}
+#btnInstall{background:var(--have);border-color:var(--have);color:#fff}
+#btnInstall:hover{border-color:var(--have);color:#fff}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- app bar ---------- */
+.bar{
+  position:sticky;top:0;z-index:30;
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+}
+.bar-row{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px 10px;
+  padding-top:calc(12px + env(safe-area-inset-top));
+  max-width:1100px;margin:0 auto;
+}
+.brand{display:flex;flex-direction:column;gap:1px;margin-right:auto;min-width:0}
+.brand h1{
+  margin:0;font-family:var(--display);font-weight:700;
+  font-size:19px;letter-spacing:-.02em;line-height:1.1;
+}
+.brand .tally{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:var(--ink-3);font-variant-numeric:tabular-nums;
+}
+.brand .tally b{color:var(--have);font-weight:600}
+.icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  height:38px;min-width:38px;padding:0 11px;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r-s);color:var(--ink-2);
+  font-family:var(--display);font-size:13px;font-weight:600;
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--ink-3)}
+.icon-btn svg{width:17px;height:17px;flex:none}
+
+/* ---------- filters ---------- */
+.filters{max-width:1100px;margin:0 auto;padding:0 14px 10px;display:flex;flex-direction:column;gap:9px}
+.seg{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r-s);padding:3px;
+}
+.seg button{
+  border:0;background:transparent;border-radius:6px;
+  padding:7px 4px;font-family:var(--display);font-weight:600;font-size:13px;
+  color:var(--ink-2);letter-spacing:-.01em;
+}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.seg button[data-v="have"][aria-pressed="true"]{color:var(--have)}
+.seg button[data-v="want"][aria-pressed="true"]{color:var(--want)}
+
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:none;border:1px solid var(--line);background:var(--surface);
+  border-radius:999px;padding:6px 13px;font-size:13px;font-weight:500;color:var(--ink-2);
+  white-space:nowrap;
+}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+
+/* ---------- collection ---------- */
+main{max-width:1100px;margin:0 auto;padding:14px 14px 120px}
+
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+@media (max-width:400px){.grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+
+.card{
+  position:relative;background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:var(--r-m);overflow:hidden;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;
+}
+.card .open{
+  display:block;width:100%;padding:0;border:0;background:transparent;text-align:left;
+}
+.card .thumb{position:relative;aspect-ratio:1;background:var(--surface-2);display:block;overflow:hidden}
+.card .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card[data-state="want"] .thumb img{filter:saturate(.45) contrast(.96);opacity:.82}
+.card .noimg{
+  position:absolute;inset:0;display:grid;place-items:center;
+  color:var(--ink-3);font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+}
+.card .body{padding:9px 10px 10px;display:flex;flex-direction:column;gap:4px}
+.card h3{
+  margin:0;font-family:var(--display);font-size:14px;font-weight:600;
+  letter-spacing:-.01em;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card .tags{font-size:11.5px;color:var(--ink-3);line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+
+.mark{
+  position:absolute;top:8px;right:8px;z-index:2;
+  width:38px;height:38px;border-radius:999px;display:grid;place-items:center;
+  border:1.5px solid rgba(255,255,255,.75);
+  background:rgba(24,28,26,.42);backdrop-filter:blur(6px);color:#fff;
+  transition:transform .18s ease, background .18s ease;
+}
+.mark svg{width:19px;height:19px}
+.card[data-state="have"] .mark{background:var(--have);border-color:var(--have);color:#fff}
+:root[data-theme="dark"] .card[data-state="have"] .mark,
+.card[data-state="have"] .mark{color:#fff}
+.mark:active{transform:scale(.88)}
+.mark.pop{animation:pop .3s ease}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.22)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  .mark{transition:none}.mark.pop{animation:none}
+}
+
+.badge{
+  align-self:flex-start;font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:5px;
+}
+.card[data-state="have"] .badge{background:var(--have-soft);color:var(--have-ink)}
+.card[data-state="want"] .badge{background:var(--want-soft);color:var(--want-ink)}
+
+/* list view */
+.grid.list{grid-template-columns:1fr;gap:8px}
+.grid.list .card{flex-direction:row;align-items:center}
+.grid.list .open{display:flex;align-items:center;gap:11px;flex:1;min-width:0}
+.grid.list .thumb{width:58px;height:58px;aspect-ratio:auto;flex:none;border-radius:0}
+.grid.list .body{padding:8px 0;gap:3px;min-width:0;flex:1}
+.grid.list h3{-webkit-line-clamp:1}
+.grid.list .mark{position:static;margin:0 10px 0 8px;width:36px;height:36px;flex:none;
+  border-color:var(--line);background:var(--surface-2);color:var(--ink-3);backdrop-filter:none}
+.grid.list .card[data-state="have"] .mark{background:var(--have);border-color:var(--have);color:#fff}
+
+/* ---------- empty ---------- */
+.empty{
+  text-align:center;padding:60px 20px;color:var(--ink-3);
+  border:1px dashed var(--line);border-radius:var(--r-l);background:var(--surface-2);
+}
+.empty h2{margin:0 0 6px;font-family:var(--display);font-size:17px;color:var(--ink-2);font-weight:600}
+.empty p{margin:0;font-size:14px;max-width:34ch;margin-inline:auto}
+
+/* ---------- fab ---------- */
+.fab{
+  position:fixed;z-index:25;right:16px;
+  bottom:calc(18px + env(safe-area-inset-bottom));
+  height:54px;padding:0 20px 0 16px;border:0;border-radius:999px;
+  background:var(--have);color:#fff;box-shadow:var(--shadow-lift);
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:-.01em;
+}
+.fab svg{width:20px;height:20px}
+.fab:active{transform:translateY(1px)}
+
+/* ---------- sheets ---------- */
+dialog{
+  border:0;padding:0;background:transparent;color:var(--ink);
+  width:100%;max-width:520px;margin:auto auto 0;
+}
+dialog::backdrop{background:rgba(10,14,12,.5)}
+@media (min-width:600px){dialog{margin:auto}}
+.sheet{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-l) var(--r-l) 0 0;
+  max-height:88vh;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+@media (min-width:600px){.sheet{border-radius:var(--r-l)}}
+.sheet-head{
+  display:flex;align-items:center;gap:10px;padding:14px 16px 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.sheet-head h2{margin:0;font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.02em;flex:1}
+.sheet-body{padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.sheet-foot{
+  display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line-soft);
+  background:var(--surface);border-radius:0 0 var(--r-l) var(--r-l);
+}
+
+.field{display:flex;flex-direction:column;gap:7px}
+.label{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);
+}
+input[type="text"]{
+  width:100%;padding:11px 12px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-s);
+}
+input[type="text"]::placeholder{color:var(--ink-3)}
+input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;border-color:transparent}
+
+.photo-pick{display:flex;gap:12px;align-items:stretch}
+.preview{
+  width:104px;height:104px;flex:none;border-radius:var(--r-m);overflow:hidden;
+  background:var(--surface-2);border:1px dashed var(--line);
+  display:grid;place-items:center;color:var(--ink-3);
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-align:center;
+}
+.preview img{width:100%;height:100%;object-fit:cover}
+.photo-actions{display:flex;flex-direction:column;gap:8px;justify-content:center;flex:1}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 14px;border-radius:var(--r-s);border:1px solid var(--line);
+  background:var(--surface-2);color:var(--ink);
+  font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:-.01em;
+}
+.btn svg{width:17px;height:17px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--have);border-color:var(--have);color:#fff;flex:1}
+.btn.ghost{background:transparent}
+.btn.danger{background:transparent;border-color:var(--line);color:var(--danger)}
+.btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+.btn[disabled]{opacity:.5;pointer-events:none}
+
+.pickers{display:flex;flex-wrap:wrap;gap:7px}
+.pick{
+  border:1px solid var(--line);background:var(--surface-2);border-radius:999px;
+  padding:7px 13px;font-size:13.5px;font-weight:500;color:var(--ink-2);
+}
+.pick[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
+.state-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.state-pick button{
+  border:1px solid var(--line);background:var(--surface-2);border-radius:var(--r-s);
+  padding:12px 8px;font-family:var(--display);font-weight:600;font-size:14px;color:var(--ink-2);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.state-pick button svg{width:17px;height:17px}
+.state-pick button[data-v="have"][aria-pressed="true"]{background:var(--have-soft);border-color:var(--have);color:var(--have-ink)}
+.state-pick button[data-v="want"][aria-pressed="true"]{background:var(--want-soft);border-color:var(--want);color:var(--want-ink)}
+
+/* categories manager */
+.cat-list{display:flex;flex-direction:column;gap:8px}
+.cat-row{
+  display:flex;align-items:center;gap:8px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-s);padding:7px 8px 7px 12px;
+}
+.cat-row input[type="text"]{background:transparent;border:0;padding:4px 0;flex:1;min-width:0}
+.cat-row input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.cat-row .count{font-family:var(--mono);font-size:11px;color:var(--ink-3);flex:none}
+.mini{
+  width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:6px;
+  border:1px solid transparent;background:transparent;color:var(--ink-3);
+}
+.mini:hover{background:var(--danger-soft);color:var(--danger)}
+.mini svg{width:16px;height:16px}
+.add-cat{display:flex;gap:8px}
+.hint{font-size:13px;color:var(--ink-3);margin:0}
+.confirm-text{margin:0;font-size:15px;color:var(--ink-2)}
+.confirm-text strong{color:var(--ink)}
+</style>
+
+<header class="bar">
+  <div class="bar-row">
+    <div class="brand">
+      <h1>Tenho ou Quero</h1>
+      <span class="tally mono" id="tally"></span>
+    </div>
+    <button class="icon-btn" id="btnInstall" type="button" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+      Instalar
+    </button>
+    <button class="icon-btn" id="btnView" type="button" title="Mudar vista" aria-label="Mudar entre grelha e lista">
+      <svg id="viewIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></svg>
+    </button>
+    <button class="icon-btn" id="btnCats" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      Categorias
+    </button>
+  </div>
+  <div class="filters">
+    <div class="seg" id="segState" role="group" aria-label="Filtrar por estado">
+      <button type="button" data-v="all" aria-pressed="true">Tudo</button>
+      <button type="button" data-v="have" aria-pressed="false">Já tenho</button>
+      <button type="button" data-v="want" aria-pressed="false">Quero</button>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Filtrar por categoria"></div>
+  </div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>
+    <h2 id="emptyTitle"></h2>
+    <p id="emptyText"></p>
+  </div>
+</main>
+
+<button class="fab" id="btnAdd" type="button">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  Artigo
+</button>
+
+<!-- article sheet -->
+<dialog id="dlgArticle">
+  <form method="dialog" class="sheet" id="formArticle">
+    <div class="sheet-head">
+      <h2 id="artTitle">Novo artigo</h2>
+      <button class="mini" type="button" data-close aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <span class="label">Foto</span>
+        <div class="photo-pick">
+          <div class="preview" id="preview"><span>SEM FOTO</span></div>
+          <div class="photo-actions">
+            <button class="btn" type="button" id="btnCam">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.2-2h6.2l1.2 2h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+              Tirar foto
+            </button>
+            <button class="btn" type="button" id="btnGal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-6 6-2-2-5 4"/></svg>
+              Galeria
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="artName">Nome</label>
+        <input type="text" id="artName" placeholder="Ex.: Charizard holo 1ª edição" autocomplete="off" required>
+      </div>
+
+      <div class="field">
+        <span class="label">Categorias</span>
+        <div class="pickers" id="catPick"></div>
+        <p class="hint" id="noCatsHint" hidden>Ainda não tens categorias. Cria-as em “Categorias”.</p>
+      </div>
+
+      <div class="field">
+        <span class="label">Estado</span>
+        <div class="state-pick" id="statePick">
+          <button type="button" data-v="have" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+            Já tenho
+          </button>
+          <button type="button" data-v="want" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-7.5-9.8A4.2 4.2 0 0 1 12 8.4a4.2 4.2 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21z"/></svg>
+            Quero
+          </button>
+        </div>
+      </div>
+
+      <button class="btn danger" type="button" id="btnDelArt" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 12h9l1-12"/></svg>
+        Apagar artigo
+      </button>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" type="button" data-close>Cancelar</button>
+      <button class="btn primary" type="submit" id="btnSaveArt">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- categories sheet -->
+<dialog id="dlgCats">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Categorias</h2>
+      <button class="mini" type="button" data-close aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <form class="add-cat" id="formCat">
+        <input type="text" id="catName" placeholder="Nova categoria" autocomplete="off" required>
+        <button class="btn primary" type="submit" style="flex:none">Criar</button>
+      </form>
+      <div class="cat-list" id="catList"></div>
+      <p class="hint" id="catsEmpty" hidden>Sem categorias por agora. Cria a primeira acima.</p>
+    </div>
+  </div>
+</dialog>
+
+<!-- confirm sheet -->
+<dialog id="dlgConfirm">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="confirmTitle">Apagar</h2></div>
+    <div class="sheet-body"><p class="confirm-text" id="confirmText"></p></div>
+    <div class="sheet-foot">
+      <button class="btn ghost" type="button" id="confirmNo">Cancelar</button>
+      <button class="btn danger" type="button" id="confirmYes" style="flex:1;border-color:var(--danger)">Apagar</button>
+    </div>
+  </div>
+</dialog>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileGal" accept="image/*" hidden>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- storage ---------------- */
+const DB_NAME="colecao", DB_VER=1;
+let db=null;
+
+function openDB(){
+  return new Promise((res,rej)=>{
+    const rq=indexedDB.open(DB_NAME,DB_VER);
+    rq.onupgradeneeded=()=>{
+      const d=rq.result;
+      if(!d.objectStoreNames.contains("categories")) d.createObjectStore("categories",{keyPath:"id"});
+      if(!d.objectStoreNames.contains("articles")) d.createObjectStore("articles",{keyPath:"id"});
+    };
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+function tx(store,mode,fn){
+  return new Promise((res,rej)=>{
+    const t=db.transaction(store,mode), s=t.objectStore(store);
+    let out; try{ out=fn(s); }catch(e){ rej(e); return; }
+    t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out);
+    t.onerror=()=>rej(t.error);
+    t.onabort=()=>rej(t.error);
+  });
+}
+const getAll=(store)=>tx(store,"readonly",s=>s.getAll());
+const put=(store,val)=>tx(store,"readwrite",s=>s.put(val));
+const del=(store,id)=>tx(store,"readwrite",s=>s.delete(id));
+
+const uid=()=> (crypto.randomUUID? crypto.randomUUID() : "id"+Date.now()+Math.random().toString(16).slice(2));
+
+const PREF="colecao.prefs";
+function loadPrefs(){
+  try{ return JSON.parse(localStorage.getItem(PREF))||{}; }catch(e){ return {}; }
+}
+function savePrefs(){
+  try{ localStorage.setItem(PREF,JSON.stringify({view:S.view,fState:S.fState,fCat:S.fCat})); }catch(e){}
+}
+
+/* ---------------- state ---------------- */
+const S={cats:[],arts:[],fState:"all",fCat:"all",view:"grid"};
+const urls=new Map();
+
+function photoURL(a){
+  if(!a.photo) return null;
+  if(!urls.has(a.id)) urls.set(a.id,URL.createObjectURL(a.photo));
+  return urls.get(a.id);
+}
+function dropURL(id){
+  if(urls.has(id)){ URL.revokeObjectURL(urls.get(id)); urls.delete(id); }
+}
+
+/* ---------------- photo processing ---------------- */
+async function shrink(file){
+  const MAX=1200;
+  let bmp;
+  try{ bmp=await createImageBitmap(file,{imageOrientation:"from-image"}); }
+  catch(e){ try{ bmp=await createImageBitmap(file); }catch(e2){ return file; } }
+  const scale=Math.min(1,MAX/Math.max(bmp.width,bmp.height));
+  const w=Math.round(bmp.width*scale), h=Math.round(bmp.height*scale);
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(bmp,0,0,w,h);
+  bmp.close&&bmp.close();
+  const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.85));
+  return blob||file;
+}
+
+/* ---------------- rendering ---------------- */
+const $=id=>document.getElementById(id);
+const grid=$("grid"), empty=$("empty");
+
+const ICON_CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+const ICON_GRID='<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>';
+const ICON_LIST='<path d="M4 6h16M4 12h16M4 18h16"/>';
+
+function catName(id){ const c=S.cats.find(c=>c.id===id); return c?c.name:null; }
+function esc(s){ return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+function visible(){
+  return S.arts.filter(a=>{
+    if(S.fState!=="all" && a.state!==S.fState) return false;
+    if(S.fCat!=="all" && !(a.cats||[]).includes(S.fCat)) return false;
+    return true;
+  }).sort((a,b)=> a.name.localeCompare(b.name,"pt",{sensitivity:"base"}));
+}
+
+function renderTally(){
+  const have=S.arts.filter(a=>a.state==="have").length;
+  $("tally").innerHTML= S.arts.length
+    ? '<b>'+have+'</b> de '+S.arts.length+' na coleção'
+    : 'Coleção vazia';
+}
+
+function renderChips(){
+  const box=$("chips");
+  box.innerHTML="";
+  const mk=(id,label)=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="chip"; b.textContent=label;
+    b.setAttribute("aria-pressed", S.fCat===id?"true":"false");
+    b.addEventListener("click",()=>{ S.fCat=id; savePrefs(); renderChips(); renderGrid(); });
+    box.appendChild(b);
+  };
+  mk("all","Todas");
+  S.cats.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt",{sensitivity:"base"}))
+    .forEach(c=>mk(c.id,c.name));
+}
+
+function renderGrid(){
+  const list=visible();
+  grid.className="grid"+(S.view==="list"?" list":"");
+  grid.innerHTML="";
+
+  if(!list.length){
+    empty.hidden=false;
+    if(!S.arts.length){
+      $("emptyTitle").textContent="Ainda não há nada aqui";
+      $("emptyText").textContent="Toca em “Artigo” para fotografar a primeira peça da coleção.";
+    }else{
+      $("emptyTitle").textContent="Nenhum artigo com estes filtros";
+      $("emptyText").textContent="Muda a categoria ou o estado para ver o resto da coleção.";
+    }
+    return;
+  }
+  empty.hidden=true;
+
+  const frag=document.createDocumentFragment();
+  for(const a of list){
+    const url=photoURL(a);
+    const tags=(a.cats||[]).map(catName).filter(Boolean).join(" · ");
+    const card=document.createElement("article");
+    card.className="card";
+    card.dataset.state=a.state;
+    card.innerHTML=
+      '<button class="open" type="button">'+
+        '<span class="thumb">'+
+          (url? '<img src="'+url+'" alt="">' : '<span class="noimg">SEM FOTO</span>')+
+        '</span>'+
+        '<span class="body">'+
+          '<span class="badge">'+(a.state==="have"?"Já tenho":"Quero")+'</span>'+
+          '<h3>'+esc(a.name)+'</h3>'+
+          (tags? '<span class="tags">'+esc(tags)+'</span>':'')+
+        '</span>'+
+      '</button>'+
+      '<button class="mark" type="button" aria-pressed="'+(a.state==="have")+'" '+
+        'aria-label="'+(a.state==="have"?"Marcar como quero":"Marcar como já tenho")+'">'+ICON_CHECK+'</button>';
+    card.querySelector(".open").addEventListener("click",()=>editArticle(a.id));
+    card.querySelector(".mark").addEventListener("click",e=>toggleState(a.id,e.currentTarget));
+    frag.appendChild(card);
+  }
+  grid.appendChild(frag);
+}
+
+function renderAll(){ renderTally(); renderChips(); renderGrid(); }
+
+/* ---------------- actions ---------------- */
+async function toggleState(id,btn){
+  const a=S.arts.find(x=>x.id===id); if(!a) return;
+  a.state = a.state==="have" ? "want" : "have";
+  await put("articles",a);
+  const card=btn.closest(".card");
+  card.dataset.state=a.state;
+  card.querySelector(".badge").textContent = a.state==="have"?"Já tenho":"Quero";
+  btn.setAttribute("aria-pressed", a.state==="have");
+  btn.setAttribute("aria-label", a.state==="have"?"Marcar como quero":"Marcar como já tenho");
+  btn.classList.remove("pop"); void btn.offsetWidth; btn.classList.add("pop");
+  renderTally();
+  if(S.fState!=="all") setTimeout(renderGrid,260);
+}
+
+/* --- article sheet --- */
+const dlgArticle=$("dlgArticle");
+let draft=null;
+
+function openSheet(d){ d.showModal(); }
+document.querySelectorAll("[data-close]").forEach(b=>{
+  b.addEventListener("click",()=>b.closest("dialog").close());
+});
+
+function paintPreview(){
+  const p=$("preview");
+  if(draft.photo){
+    if(draft.previewURL) URL.revokeObjectURL(draft.previewURL);
+    draft.previewURL=URL.createObjectURL(draft.photo);
+    p.innerHTML='<img src="'+draft.previewURL+'" alt="Pré-visualização">';
+  }else{
+    p.innerHTML='<span>SEM FOTO</span>';
+  }
+}
+function paintCatPick(){
+  const box=$("catPick"); box.innerHTML="";
+  const sorted=S.cats.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt",{sensitivity:"base"}));
+  $("noCatsHint").hidden = sorted.length>0;
+  sorted.forEach(c=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="pick"; b.textContent=c.name;
+    b.setAttribute("aria-pressed", draft.cats.includes(c.id)?"true":"false");
+    b.addEventListener("click",()=>{
+      const i=draft.cats.indexOf(c.id);
+      if(i<0) draft.cats.push(c.id); else draft.cats.splice(i,1);
+      b.setAttribute("aria-pressed", i<0?"true":"false");
+    });
+    box.appendChild(b);
+  });
+}
+function paintStatePick(){
+  $("statePick").querySelectorAll("button").forEach(b=>{
+    b.setAttribute("aria-pressed", b.dataset.v===draft.state?"true":"false");
+  });
+}
+$("statePick").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-v]"); if(!b) return;
+  draft.state=b.dataset.v; paintStatePick();
+});
+
+function newArticle(){
+  draft={id:null,name:"",cats:S.fCat!=="all"?[S.fCat]:[],state:S.fState==="have"?"have":"want",photo:null,previewURL:null};
+  $("artTitle").textContent="Novo artigo";
+  $("artName").value="";
+  $("btnDelArt").hidden=true;
+  paintPreview(); paintCatPick(); paintStatePick();
+  openSheet(dlgArticle);
+}
+function editArticle(id){
+  const a=S.arts.find(x=>x.id===id); if(!a) return;
+  draft={id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,photo:a.photo||null,previewURL:null};
+  $("artTitle").textContent="Editar artigo";
+  $("artName").value=a.name;
+  $("btnDelArt").hidden=false;
+  paintPreview(); paintCatPick(); paintStatePick();
+  openSheet(dlgArticle);
+}
+
+$("btnCam").addEventListener("click",()=>$("fileCam").click());
+$("btnGal").addEventListener("click",()=>$("fileGal").click());
+["fileCam","fileGal"].forEach(id=>{
+  $(id).addEventListener("change",async e=>{
+    const f=e.target.files&&e.target.files[0];
+    e.target.value="";
+    if(!f||!draft) return;
+    $("preview").innerHTML='<span>A PROCESSAR…</span>';
+    draft.photo=await shrink(f);
+    paintPreview();
+  });
+});
+
+$("formArticle").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const name=$("artName").value.trim();
+  if(!name){ $("artName").focus(); return; }
+  const rec={
+    id:draft.id||uid(),
+    name,
+    cats:draft.cats.slice(),
+    state:draft.state,
+    photo:draft.photo||null,
+    createdAt: draft.id ? (S.arts.find(a=>a.id===draft.id)||{}).createdAt || Date.now() : Date.now()
+  };
+  await put("articles",rec);
+  dropURL(rec.id);
+  const i=S.arts.findIndex(a=>a.id===rec.id);
+  if(i<0) S.arts.push(rec); else S.arts[i]=rec;
+  if(draft.previewURL) URL.revokeObjectURL(draft.previewURL);
+  draft=null;
+  dlgArticle.close();
+  renderAll();
+});
+
+$("btnDelArt").addEventListener("click",()=>{
+  const a=S.arts.find(x=>x.id===draft.id); if(!a) return;
+  confirmSheet("Apagar artigo","Apagar <strong>"+esc(a.name)+"</strong> da coleção? Não dá para recuperar.",async()=>{
+    await del("articles",a.id);
+    dropURL(a.id);
+    S.arts=S.arts.filter(x=>x.id!==a.id);
+    dlgArticle.close();
+    renderAll();
+  });
+});
+
+/* --- categories sheet --- */
+const dlgCats=$("dlgCats");
+function renderCats(){
+  const box=$("catList"); box.innerHTML="";
+  const sorted=S.cats.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt",{sensitivity:"base"}));
+  $("catsEmpty").hidden = sorted.length>0;
+  sorted.forEach(c=>{
+    const used=S.arts.filter(a=>(a.cats||[]).includes(c.id)).length;
+    const row=document.createElement("div");
+    row.className="cat-row";
+    row.innerHTML=
+      '<input type="text" value="'+esc(c.name)+'" aria-label="Nome da categoria">'+
+      '<span class="count mono">'+used+'</span>'+
+      '<button class="mini" type="button" aria-label="Apagar categoria">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 12h9l1-12"/></svg>'+
+      '</button>';
+    const inp=row.querySelector("input");
+    const commit=async()=>{
+      const v=inp.value.trim();
+      if(!v){ inp.value=c.name; return; }
+      if(v===c.name) return;
+      c.name=v; await put("categories",c);
+      renderChips(); renderGrid(); renderCats();
+    };
+    inp.addEventListener("blur",commit);
+    inp.addEventListener("keydown",ev=>{ if(ev.key==="Enter"){ ev.preventDefault(); inp.blur(); } });
+    row.querySelector(".mini").addEventListener("click",()=>{
+      confirmSheet("Apagar categoria",
+        "Apagar <strong>"+esc(c.name)+"</strong>?"+(used?" Vai sair de "+used+" artigo"+(used>1?"s":"")+", mas os artigos ficam.":""),
+        async()=>{
+          await del("categories",c.id);
+          S.cats=S.cats.filter(x=>x.id!==c.id);
+          const hits=S.arts.filter(a=>(a.cats||[]).includes(c.id));
+          for(const a of hits){ a.cats=a.cats.filter(x=>x!==c.id); await put("articles",a); }
+          if(S.fCat===c.id){ S.fCat="all"; savePrefs(); }
+          renderCats(); renderAll();
+        });
+    });
+    box.appendChild(row);
+  });
+}
+$("formCat").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const v=$("catName").value.trim(); if(!v) return;
+  const c={id:uid(),name:v};
+  await put("categories",c);
+  S.cats.push(c);
+  $("catName").value="";
+  renderCats(); renderChips();
+});
+$("btnCats").addEventListener("click",()=>{ renderCats(); openSheet(dlgCats); });
+
+/* --- confirm --- */
+const dlgConfirm=$("dlgConfirm");
+let onYes=null;
+function confirmSheet(title,html,fn){
+  $("confirmTitle").textContent=title;
+  $("confirmText").innerHTML=html;
+  onYes=fn;
+  openSheet(dlgConfirm);
+}
+$("confirmNo").addEventListener("click",()=>dlgConfirm.close());
+$("confirmYes").addEventListener("click",async()=>{
+  const fn=onYes; onYes=null; dlgConfirm.close();
+  if(fn) await fn();
+});
+
+/* --- toolbar --- */
+$("btnAdd").addEventListener("click",newArticle);
+$("segState").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-v]"); if(!b) return;
+  S.fState=b.dataset.v; savePrefs();
+  $("segState").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+  renderGrid();
+});
+function paintViewIcon(){
+  $("viewIcon").innerHTML = S.view==="grid" ? ICON_LIST : ICON_GRID;
+  $("btnView").title = S.view==="grid" ? "Ver em lista" : "Ver em grelha";
+}
+$("btnView").addEventListener("click",()=>{
+  S.view = S.view==="grid" ? "list" : "grid";
+  savePrefs(); paintViewIcon(); renderGrid();
+});
+
+/* ---------------- instalar no telemóvel ---------------- */
+let installPrompt=null;
+addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  installPrompt=e;
+  $("btnInstall").hidden=false;
+});
+$("btnInstall").addEventListener("click",async()=>{
+  if(!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt=null;
+  $("btnInstall").hidden=true;
+});
+addEventListener("appinstalled",()=>{ installPrompt=null; $("btnInstall").hidden=true; });
+
+/* ---------------- boot ---------------- */
+(async function boot(){
+  // Pede ao browser para não despejar os dados quando o telemóvel ficar sem espaço.
+  if(navigator.storage&&navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+
+  const p=loadPrefs();
+  if(p.view==="list"||p.view==="grid") S.view=p.view;
+  if(p.fState) S.fState=p.fState;
+  if(p.fCat) S.fCat=p.fCat;
+
+  db=await openDB();
+  S.cats=await getAll("categories");
+  S.arts=await getAll("articles");
+  if(S.fCat!=="all" && !S.cats.some(c=>c.id===S.fCat)) S.fCat="all";
+
+  $("segState").querySelectorAll("button").forEach(b=>
+    b.setAttribute("aria-pressed", b.dataset.v===S.fState?"true":"false"));
+  paintViewIcon();
+  renderAll();
+})();
+
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
