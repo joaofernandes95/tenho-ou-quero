@@ -16,7 +16,7 @@ const HTML = `<!doctype html>
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta name="description" content="Checklist com fotos para gerir uma coleção: já tenho ou ainda quero.">
+<meta name="description" content="Wishlist com fotos: o que já tenho e o que ainda quero.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191d23" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -25,15 +25,23 @@ const HTML = `<!doctype html>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Tenho ou Quero">
+<meta name="apple-mobile-web-app-title" content="A Minha Wishlist">
 ${head}
 </head>
 <body>
 ${body}
 <script>
+// Regista o service worker e, quando sai uma versão nova, recarrega uma vez sozinho —
+// senão fica-se preso na versão em cache sem perceber porquê.
 if ("serviceWorker" in navigator) {
   addEventListener("load", function () {
     navigator.serviceWorker.register("./sw.js").catch(function () {});
+    var recarregou = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (recarregou) return;
+      recarregou = true;
+      location.reload();
+    });
   });
 }
 </script>

@@ -1,4 +1,4 @@
-<title>Tenho ou Quero</title>
+<title>A Minha Wishlist</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -386,6 +386,8 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
 .mini svg{width:16px;height:16px}
 .add-cat{display:flex;gap:8px}
 .hint{font-size:13px;color:var(--ink-3);margin:0}
+.hint.erro{color:var(--danger)}
+.hint:empty{display:none}
 .confirm-text{margin:0;font-size:15px;color:var(--ink-2)}
 .confirm-text strong{color:var(--ink)}
 </style>
@@ -393,7 +395,7 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
 <header class="bar">
   <div class="bar-row">
     <div class="brand">
-      <h1>Tenho ou Quero</h1>
+      <h1>A Minha Wishlist</h1>
       <span class="tally mono" id="tally"></span>
     </div>
     <button class="icon-btn" id="btnInstall" type="button" hidden>
@@ -541,6 +543,8 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
           </button>
         </div>
       </div>
+
+      <p class="hint erro" id="saveErr"></p>
 
       <button class="btn danger" type="button" id="btnDelArt" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M6.5 7l1 12h9l1-12"/></svg>
@@ -950,6 +954,7 @@ $("fileRestore").addEventListener("change",async e=>{
     "Artigos com o mesmo id são substituídos pela versão do ficheiro; o resto fica na mesma.",
     async()=>{
       try{
+        const tocados=[];
         for(const c of (data.categories||[])){
           if(!c||!c.id||!c.name) continue;
           await put("categories",{id:c.id,name:String(c.name)});
@@ -963,10 +968,11 @@ $("fileRestore").addEventListener("change",async e=>{
             thumb:r.thumb&&r.thumb.data?b64ToBlob(r.thumb.data,r.thumb.type):null,
             createdAt:r.createdAt||Date.now()
           });
-          dropURL(r.id);
+          tocados.push(r.id);
         }
         S.cats=await getAll("categories");
         S.arts=await getAll("articles");
+        tocados.forEach(dropURL);
         renderAll();
         msg.textContent="Reposto: "+nA+" artigo"+(nA===1?"":"s")+".";
       }catch(err){
@@ -1025,6 +1031,7 @@ function newArticle(){
   $("artTitle").textContent="Novo artigo";
   $("artName").value="";
   $("btnDelArt").hidden=true;
+  $("saveErr").textContent="";
   paintPreview(); paintCatPick(); paintStatePick();
   openSheet(dlgArticle);
 }
@@ -1034,6 +1041,7 @@ function editArticle(id){
   $("artTitle").textContent="Editar artigo";
   $("artName").value=a.name;
   $("btnDelArt").hidden=false;
+  $("saveErr").textContent="";
   paintPreview(); paintCatPick(); paintStatePick();
   openSheet(dlgArticle);
 }
@@ -1065,7 +1073,17 @@ $("formArticle").addEventListener("submit",async e=>{
     thumb:draft.thumb||null,
     createdAt: draft.id ? (S.arts.find(a=>a.id===draft.id)||{}).createdAt || Date.now() : Date.now()
   };
-  await put("articles",rec);
+  const btn=$("btnSaveArt");
+  btn.disabled=true;
+  try{
+    await put("articles",rec);
+  }catch(err){
+    btn.disabled=false;
+    $("saveErr").textContent="Não deu para guardar. Se o telemóvel estiver sem espaço, apaga alguma coisa e tenta outra vez.";
+    return;
+  }
+  btn.disabled=false;
+  $("saveErr").textContent="";
   dropURL(rec.id);
   const i=S.arts.findIndex(a=>a.id===rec.id);
   if(i<0) S.arts.push(rec); else S.arts[i]=rec;
@@ -1213,15 +1231,20 @@ addEventListener("appinstalled",()=>{ installPrompt=null; $("btnInstall").hidden
 async function backfillThumbs(){
   const pend=S.arts.filter(a=>a.photo&&!a.thumb);
   if(!pend.length) return;
+  let feitas=0;
   for(const a of pend){
     try{
       const t=await makeThumb(a.photo);
       if(!t) continue;
       a.thumb=t;
       await put("articles",a);
-      dropURL(a.id);
+      feitas++;
     }catch(e){ /* fica na foto grande */ }
   }
+  if(!feitas) return;
+  // Só aqui é que se trocam os URLs: revogar um blob que está a ser mostrado deixa a
+  // imagem em branco, por isso revoga-se e volta a desenhar-se sem paragem pelo meio.
+  for(const a of pend) if(a.thumb) dropURL(a.id);
   renderGrid(); renderFoot();
 }
 
