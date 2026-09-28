@@ -1,5 +1,5 @@
 // Gerado por tools/build.mjs - nao editar a mao.
-const VERSION = "vcaa4212a78";
+const VERSION = "vbebcb3c151";
 const SHELL = "shell-" + VERSION;
 const FONTS = "fonts-v1";
 const ASSETS = [

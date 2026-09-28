@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>A preparar teste…</title>
+<pre id="o">A preparar dados de teste…</pre>
+<script>
+// Apaga a base e cria dados no formato antigo (v1: fotos dentro do artigo), para testar
+// também a migração. E fica sem miniatura, F sem foto, A–C na categoria "Cartas".
+(async()=>{
+  const o=document.getElementById("o");
+  const mk=(color,label,size)=>new Promise(r=>{
+    const c=document.createElement("canvas"); c.width=c.height=size;
+    const x=c.getContext("2d"); x.fillStyle=color; x.fillRect(0,0,size,size);
+    x.fillStyle="#fff"; x.font=(size/4)+"px sans-serif"; x.fillText(label,size/10,size/2);
+    c.toBlob(r,"image/webp",0.8);
+  });
+  await new Promise((res,rej)=>{
+    const q=indexedDB.deleteDatabase("colecao");
+    q.onsuccess=res; q.onerror=()=>rej(q.error);
+    q.onblocked=()=>{ o.textContent="A app está aberta noutro separador desta porta: fecha-o."; };
+  });
+  const db=await new Promise((res,rej)=>{
+    const q=indexedDB.open("colecao",1);
+    q.onupgradeneeded=()=>{ const d=q.result;
+      d.createObjectStore("categories",{keyPath:"id"}); d.createObjectStore("articles",{keyPath:"id"}); };
+    q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error);
+  });
+  const items=[["A","#c0392b","want"],["B","#2980b9","want"],["C","#27ae60","have"],
+               ["D","#8e44ad","have"],["E","#d35400","want"],["F","#555555","want"]];
+  const recs=[];
+  for(const [n,col,st] of items){
+    recs.push({id:"t"+n,name:"Artigo "+n,cats:n<"D"?["c1"]:[],state:st,
+      photo:n==="F"?null:await mk(col,n,800),
+      thumb:(n==="E"||n==="F")?null:await mk(col,n,200),
+      createdAt:Date.now()});
+  }
+  await new Promise((res,rej)=>{
+    const t=db.transaction(["articles","categories"],"readwrite");
+    recs.forEach(r=>t.objectStore("articles").put(r));
+    t.objectStore("categories").put({id:"c1",name:"Cartas"});
+    t.oncomplete=res; t.onerror=()=>rej(t.error);
+  });
+  db.close();
+  try{ sessionStorage.removeItem("teste.parte1"); }catch(e){}
+  location.replace("/?teste=1");
+})().catch(e=>{ document.getElementById("o").textContent="Erro a preparar: "+e; });
+</script>

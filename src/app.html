@@ -293,6 +293,13 @@ main{max-width:1100px;margin:0 auto;padding:14px 14px 120px}
 .fab svg{width:20px;height:20px}
 .fab:active{transform:translateY(1px)}
 
+.toast{
+  position:fixed;z-index:60;inset:auto 16px calc(84px + env(safe-area-inset-bottom));
+  margin:0 auto;max-width:420px;width:auto;height:auto;border:0;
+  background:var(--ink);color:var(--ground);border-radius:var(--r-m);
+  padding:12px 14px;font-size:14px;box-shadow:var(--shadow-lift);text-align:center;
+}
+
 /* ---------- sheets ---------- */
 dialog{
   border:0;padding:0;background:transparent;color:var(--ink);
@@ -436,6 +443,8 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   Artigo
 </button>
+
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual" hidden></div>
 
 <!-- foto em ecrã inteiro -->
 <dialog id="dlgPhoto" aria-label="Foto do artigo">
@@ -599,7 +608,12 @@ input[type="text"]:focus{outline:2px solid var(--focus);outline-offset:-1px;bord
 "use strict";
 
 /* ---------------- storage ---------------- */
-const DB_NAME="colecao", DB_VER=1;
+// As fotos vivem em stores próprias ("photos" e "thumbs", {id,blob}) e o artigo guarda só
+// os dados. Motivo: no Safari, regravar um registo apaga o ficheiro do blob antigo e o Blob
+// que a app tinha em memória morre — a imagem fica em branco e voltar a gravá-lo falha.
+// Assim, mudar estado, nome ou categorias nunca toca numa foto; uma foto só é regravada
+// quando é substituída, e aí a app já está a usar a nova.
+const DB_NAME="colecao", DB_VER=2;
 let db=null;
 
 function openDB(){
@@ -607,25 +621,97 @@ function openDB(){
     const rq=indexedDB.open(DB_NAME,DB_VER);
     rq.onupgradeneeded=()=>{
       const d=rq.result;
-      if(!d.objectStoreNames.contains("categories")) d.createObjectStore("categories",{keyPath:"id"});
-      if(!d.objectStoreNames.contains("articles")) d.createObjectStore("articles",{keyPath:"id"});
+      for(const n of ["categories","articles","photos","thumbs"])
+        if(!d.objectStoreNames.contains(n)) d.createObjectStore(n,{keyPath:"id"});
     };
-    rq.onsuccess=()=>res(rq.result);
+    rq.onsuccess=()=>{
+      const d=rq.result;
+      // Outra janela com uma versão nova precisa de atualizar a base: larga-a e recarrega.
+      d.onversionchange=()=>{ d.close(); location.reload(); };
+      res(d);
+    };
     rq.onerror=()=>rej(rq.error);
   });
 }
-function tx(store,mode,fn){
+// fn recebe st(nome) → object store. Se fn rebentar a meio, nada do que pediu fica gravado.
+function tx(stores,mode,fn){
   return new Promise((res,rej)=>{
-    const t=db.transaction(store,mode), s=t.objectStore(store);
-    let out; try{ out=fn(s); }catch(e){ rej(e); return; }
+    const t=db.transaction(stores,mode);
+    let out;
+    try{ out=fn(n=>t.objectStore(n)); }
+    catch(e){ try{ t.abort(); }catch(_){} rej(e); return; }
     t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out);
     t.onerror=()=>rej(t.error);
     t.onabort=()=>rej(t.error);
   });
 }
-const getAll=(store)=>tx(store,"readonly",s=>s.getAll());
-const put=(store,val)=>tx(store,"readwrite",s=>s.put(val));
-const del=(store,id)=>tx(store,"readwrite",s=>s.delete(id));
+const getAll=(store)=>tx(store,"readonly",st=>st(store).getAll());
+const put=(store,val)=>tx(store,"readwrite",st=>st(store).put(val));
+const del=(store,id)=>tx(store,"readwrite",st=>st(store).delete(id));
+
+const meta=a=>({id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,createdAt:a.createdAt||null});
+// Artigo por migrar ("legacy") ainda tem as fotos no próprio registo: grava por cima delas.
+function saveMeta(a){
+  if(!a.legacy) return put("articles",meta(a));
+  return tx("articles","readwrite",st=>{
+    const s=st("articles"), g=s.get(a.id);
+    g.onsuccess=()=>{ if(g.result) s.put(Object.assign(g.result,meta(a))); };
+  });
+}
+// Grava o artigo e substitui as fotos (null apaga). Tudo ou nada.
+function saveWithPhotos(a){
+  return tx(["articles","photos","thumbs"],"readwrite",st=>{
+    st("articles").put(meta(a));
+    if(a.photo) st("photos").put({id:a.id,blob:a.photo}); else st("photos").delete(a.id);
+    if(a.thumb) st("thumbs").put({id:a.id,blob:a.thumb}); else st("thumbs").delete(a.id);
+  });
+}
+const delArticle=id=>tx(["articles","photos","thumbs"],"readwrite",st=>{
+  st("articles").delete(id); st("photos").delete(id); st("thumbs").delete(id);
+});
+
+// Versão 1 guardava as fotos dentro do artigo. Passa-as para as stores novas, um artigo de
+// cada vez: primeiro copia, só depois limpa o artigo — se a app fechar a meio, o próximo
+// arranque retoma sem perder nada. Também limpa fotos órfãs.
+async function migrate(){
+  const rows=await getAll("articles");
+  const ids=new Set(rows.map(r=>r.id));
+  const [pk,tk]=await Promise.all([
+    tx("photos","readonly",st=>st("photos").getAllKeys()),
+    tx("thumbs","readonly",st=>st("thumbs").getAllKeys())
+  ]);
+  const temP=new Set(pk), temT=new Set(tk);
+  for(const r of rows){
+    if(!("photo" in r) && !("thumb" in r)) continue;
+    try{
+      if((r.photo&&!temP.has(r.id))||(r.thumb&&!temT.has(r.id))){
+        await tx(["photos","thumbs"],"readwrite",st=>{
+          if(r.photo&&!temP.has(r.id)) st("photos").put({id:r.id,blob:r.photo});
+          if(r.thumb&&!temT.has(r.id)) st("thumbs").put({id:r.id,blob:r.thumb});
+        });
+      }
+      await put("articles",meta(r));
+    }catch(e){ /* fica como estava; tenta outra vez no próximo arranque */ }
+  }
+  const orf=pk.filter(k=>!ids.has(k)), orfT=tk.filter(k=>!ids.has(k));
+  if(orf.length||orfT.length){
+    await tx(["photos","thumbs"],"readwrite",st=>{
+      orf.forEach(k=>st("photos").delete(k)); orfT.forEach(k=>st("thumbs").delete(k));
+    }).catch(()=>{});
+  }
+}
+async function loadAll(){
+  const [cats,rows,ps,ts]=await Promise.all(["categories","articles","photos","thumbs"].map(getAll));
+  const P=new Map(ps.map(p=>[p.id,p.blob])), T=new Map(ts.map(t=>[t.id,t.blob]));
+  S.cats=cats;
+  // Se a migração de um artigo falhou, ele ainda tem as fotos lá dentro: usa-as.
+  S.arts=rows.map(r=>Object.assign(meta(r),{
+    state:r.state==="have"?"have":"want",
+    photo:P.get(r.id)||r.photo||null,
+    thumb:T.get(r.id)||r.thumb||null,
+    legacy:!!(r.photo||r.thumb)
+  }));
+}
 
 const uid=()=> (crypto.randomUUID? crypto.randomUUID() : "id"+Date.now()+Math.random().toString(16).slice(2));
 
@@ -649,8 +735,8 @@ function blobURL(key,blob){
 }
 const thumbURL=a=> blobURL(a.id+":t", a.thumb||a.photo);
 const fullURL =a=> blobURL(a.id+":f", a.photo);
-function dropURL(id){
-  for(const k of [id+":t",id+":f"]){
+function dropURL(id,kinds){
+  for(const k of (Array.isArray(kinds)?kinds:["t","f"]).map(x=>id+":"+x)){
     if(urls.has(k)){ URL.revokeObjectURL(urls.get(k)); urls.delete(k); }
   }
 }
@@ -755,7 +841,7 @@ function renderGrid(){
   empty.hidden=true;
 
   const frag=document.createDocumentFragment();
-  list.forEach((a,idx)=>{
+  list.forEach(a=>{
     const url=thumbURL(a);
     const tags=(a.cats||[]).map(catName).filter(Boolean).join(" · ");
     const card=document.createElement("article");
@@ -776,7 +862,7 @@ function renderGrid(){
       '</button>'+
       '<button class="mark" type="button" aria-pressed="'+(a.state==="have")+'" '+
         'aria-label="'+(a.state==="have"?"Marcar como quero":"Marcar como já tenho")+'">'+ICON_CHECK+'</button>';
-    card.querySelector(".shot").addEventListener("click",()=>openViewer(idx));
+    card.querySelector(".shot").addEventListener("click",()=>openViewer(a.id));
     card.querySelector(".info").addEventListener("click",()=>editArticle(a.id));
     card.querySelector(".mark").addEventListener("click",e=>toggleState(a.id,e.currentTarget));
     frag.appendChild(card);
@@ -810,10 +896,32 @@ async function renderFoot(){
 }
 
 /* ---------------- actions ---------------- */
+let toastT=null;
+// Popover para ficar por cima de um <dialog> aberto (ex.: foto em ecrã inteiro).
+function toast(msg){
+  const t=$("toast");
+  const esconde=()=>{ if(t.hidePopover){ try{ t.hidePopover(); }catch(e){} } t.hidden=true; };
+  esconde();
+  t.textContent=msg; t.hidden=false;
+  if(t.showPopover){ try{ t.showPopover(); }catch(e){} }
+  clearTimeout(toastT); toastT=setTimeout(esconde,3500);
+}
+
+// Troca quero/já tenho. Só grava os dados do artigo; se falhar, volta atrás e avisa.
+const aTrocar=new Set();
+async function flip(a){
+  if(aTrocar.has(a.id)) return false;
+  aTrocar.add(a.id);
+  const antes=a.state;
+  a.state = antes==="have" ? "want" : "have";
+  try{ await saveMeta(a); return true; }
+  catch(e){ a.state=antes; toast("Não deu para gravar. Tenta outra vez."); return false; }
+  finally{ aTrocar.delete(a.id); }
+}
+
 async function toggleState(id,btn){
   const a=S.arts.find(x=>x.id===id); if(!a) return;
-  a.state = a.state==="have" ? "want" : "have";
-  await put("articles",a);
+  if(!await flip(a)) return;
   const card=btn.closest(".card");
   card.dataset.state=a.state;
   card.querySelector(".badge").textContent = a.state==="have"?"Já tenho":"Quero";
@@ -828,9 +936,13 @@ async function toggleState(id,btn){
 const dlgPhoto=$("dlgPhoto");
 let vList=[], vIdx=0;
 
-function openViewer(idx){
-  vList=visible(); vIdx=idx;
-  if(!vList.length) return;
+function openViewer(id){
+  vList=visible(); vIdx=vList.findIndex(x=>x.id===id);
+  if(vIdx<0){
+    // Artigo que acabou de sair do filtro mas ainda está no ecrã: mostra-o sozinho.
+    const a=S.arts.find(x=>x.id===id); if(!a) return;
+    vList=[a]; vIdx=0;
+  }
   paintViewer();
   dlgPhoto.showModal();
 }
@@ -873,8 +985,7 @@ $("vEdit").addEventListener("click",()=>{
 });
 $("vToggle").addEventListener("click",async()=>{
   const a=vList[vIdx]; if(!a) return;
-  a.state = a.state==="have" ? "want" : "have";
-  await put("articles",a);
+  if(!await flip(a)) return;
   paintViewer(); renderTally(); renderGrid();
 });
 // deslizar o dedo para trocar de foto
@@ -953,15 +1064,15 @@ $("fileRestore").addEventListener("change",async e=>{
     "Juntar <strong>"+nA+" artigo"+(nA===1?"":"s")+"</strong> e <strong>"+nC+" categoria"+(nC===1?"":"s")+"</strong> ao que já tens? "+
     "Artigos com o mesmo id são substituídos pela versão do ficheiro; o resto fica na mesma.",
     async()=>{
+      const tocados=[];
       try{
-        const tocados=[];
         for(const c of (data.categories||[])){
           if(!c||!c.id||!c.name) continue;
           await put("categories",{id:c.id,name:String(c.name)});
         }
         for(const r of data.articles){
           if(!r||!r.id||!r.name) continue;
-          await put("articles",{
+          await saveWithPhotos({
             id:r.id,name:String(r.name),cats:Array.isArray(r.cats)?r.cats:[],
             state:r.state==="have"?"have":"want",
             photo:r.photo&&r.photo.data?b64ToBlob(r.photo.data,r.photo.type):null,
@@ -970,13 +1081,15 @@ $("fileRestore").addEventListener("change",async e=>{
           });
           tocados.push(r.id);
         }
-        S.cats=await getAll("categories");
-        S.arts=await getAll("articles");
-        tocados.forEach(dropURL);
+        // Os artigos substituídos têm fotos novas: as URLs antigas apontam para blobs mortos.
+        await loadAll();
+        tocados.forEach(id=>dropURL(id));
         renderAll();
         msg.textContent="Reposto: "+nA+" artigo"+(nA===1?"":"s")+".";
       }catch(err){
         msg.textContent="A reposição falhou a meio. O que já tinhas continua lá.";
+        // Mostra o que ficou gravado até à falha, com URLs válidas.
+        try{ await loadAll(); tocados.forEach(id=>dropURL(id)); renderAll(); }catch(e){}
       }
     });
 });
@@ -1026,25 +1139,28 @@ $("statePick").addEventListener("click",e=>{
   draft.state=b.dataset.v; paintStatePick();
 });
 
-function newArticle(){
-  draft={id:null,name:"",cats:S.fCat!=="all"?[S.fCat]:[],state:S.fState==="have"?"have":"want",photo:null,thumb:null,previewURL:null};
-  $("artTitle").textContent="Novo artigo";
-  $("artName").value="";
-  $("btnDelArt").hidden=true;
+function openDraft(d,title){
+  draft=d;
+  $("artTitle").textContent=title;
+  $("artName").value=d.name;
+  $("btnDelArt").hidden=!d.id;
+  $("btnSaveArt").disabled=false;
   $("saveErr").textContent="";
   paintPreview(); paintCatPick(); paintStatePick();
   openSheet(dlgArticle);
+}
+function newArticle(){
+  openDraft({id:null,name:"",cats:S.fCat!=="all"?[S.fCat]:[],state:S.fState==="have"?"have":"want",photo:null,thumb:null,previewURL:null},"Novo artigo");
 }
 function editArticle(id){
   const a=S.arts.find(x=>x.id===id); if(!a) return;
-  draft={id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,photo:a.photo||null,thumb:a.thumb||null,previewURL:null};
-  $("artTitle").textContent="Editar artigo";
-  $("artName").value=a.name;
-  $("btnDelArt").hidden=false;
-  $("saveErr").textContent="";
-  paintPreview(); paintCatPick(); paintStatePick();
-  openSheet(dlgArticle);
+  openDraft({id:a.id,name:a.name,cats:(a.cats||[]).slice(),state:a.state,photo:a.photo||null,thumb:a.thumb||null,previewURL:null},"Editar artigo");
 }
+// Fechar sem guardar (Cancelar, X ou Esc) larga o rascunho e a pré-visualização.
+dlgArticle.addEventListener("close",()=>{
+  if(draft&&draft.previewURL) URL.revokeObjectURL(draft.previewURL);
+  draft=null;
+});
 
 $("btnCam").addEventListener("click",()=>$("fileCam").click());
 $("btnGal").addEventListener("click",()=>$("fileGal").click());
@@ -1052,55 +1168,68 @@ $("btnGal").addEventListener("click",()=>$("fileGal").click());
   $(id).addEventListener("change",async e=>{
     const f=e.target.files&&e.target.files[0];
     e.target.value="";
-    if(!f||!draft) return;
+    const d=draft;
+    if(!f||!d) return;
+    const vez=d.proc=(d.proc||0)+1;
     $("preview").innerHTML='<span>A PROCESSAR…</span>';
-    const out=await shrink(f);
-    draft.photo=out.photo; draft.thumb=out.thumb;
+    $("btnSaveArt").disabled=true;
+    let out=null;
+    try{ out=await shrink(f); }catch(err){}
+    // O formulário pode ter sido fechado, ou escolhida outra foto, entretanto.
+    if(draft!==d||d.proc!==vez) return;
+    $("btnSaveArt").disabled=false;
+    if(out){ d.photo=out.photo; d.thumb=out.thumb; $("saveErr").textContent=""; }
+    else $("saveErr").textContent="Não deu para ler essa foto. Tenta outra.";
     paintPreview();
   });
 });
 
 $("formArticle").addEventListener("submit",async e=>{
   e.preventDefault();
+  const btn=$("btnSaveArt");
+  if(!draft||btn.disabled) return;
   const name=$("artName").value.trim();
   if(!name){ $("artName").focus(); return; }
+  const d=draft;
+  const orig=d.id ? S.arts.find(a=>a.id===d.id) : null;
+  // Foto igual → não se regrava (é isso que mantém a foto viva no Safari). Fica com a
+  // miniatura atual do artigo, que pode ter sido criada entretanto em segundo plano.
+  const novaFoto = !orig || d.photo!==orig.photo;
   const rec={
-    id:draft.id||uid(),
+    id:d.id||uid(),
     name,
-    cats:draft.cats.slice(),
-    state:draft.state,
-    photo:draft.photo||null,
-    thumb:draft.thumb||null,
-    createdAt: draft.id ? (S.arts.find(a=>a.id===draft.id)||{}).createdAt || Date.now() : Date.now()
+    cats:d.cats.slice(),
+    state:d.state,
+    photo:novaFoto ? d.photo||null : orig.photo,
+    thumb:novaFoto ? d.thumb||null : orig.thumb,
+    createdAt: orig&&orig.createdAt || Date.now(),
+    legacy: !novaFoto && !!orig.legacy
   };
-  const btn=$("btnSaveArt");
   btn.disabled=true;
   try{
-    await put("articles",rec);
+    if(novaFoto) await saveWithPhotos(rec); else await saveMeta(rec);
   }catch(err){
     btn.disabled=false;
     $("saveErr").textContent="Não deu para guardar. Se o telemóvel estiver sem espaço, apaga alguma coisa e tenta outra vez.";
     return;
   }
   btn.disabled=false;
-  $("saveErr").textContent="";
-  dropURL(rec.id);
+  if(novaFoto) dropURL(rec.id);
   const i=S.arts.findIndex(a=>a.id===rec.id);
   if(i<0) S.arts.push(rec); else S.arts[i]=rec;
-  if(draft.previewURL) URL.revokeObjectURL(draft.previewURL);
-  draft=null;
   dlgArticle.close();
   renderAll();
 });
 
 $("btnDelArt").addEventListener("click",()=>{
-  const a=S.arts.find(x=>x.id===draft.id); if(!a) return;
+  const a=draft&&S.arts.find(x=>x.id===draft.id); if(!a) return;
   confirmSheet("Apagar artigo","Apagar <strong>"+esc(a.name)+"</strong> da coleção? Não dá para recuperar.",async()=>{
-    await del("articles",a.id);
-    dropURL(a.id);
+    try{ await delArticle(a.id); }
+    catch(e){ toast("Não deu para apagar. Tenta outra vez."); return; }
     S.arts=S.arts.filter(x=>x.id!==a.id);
     dlgArticle.close();
     renderAll();
+    dropURL(a.id);
   });
 });
 
@@ -1134,10 +1263,12 @@ function renderCats(){
       confirmSheet("Apagar categoria",
         "Apagar <strong>"+esc(c.name)+"</strong>?"+(used?" Vai sair de "+used+" artigo"+(used>1?"s":"")+", mas os artigos ficam.":""),
         async()=>{
-          await del("categories",c.id);
-          S.cats=S.cats.filter(x=>x.id!==c.id);
-          const hits=S.arts.filter(a=>(a.cats||[]).includes(c.id));
-          for(const a of hits){ a.cats=a.cats.filter(x=>x!==c.id); await put("articles",a); }
+          try{
+            await del("categories",c.id);
+            S.cats=S.cats.filter(x=>x.id!==c.id);
+            const hits=S.arts.filter(a=>(a.cats||[]).includes(c.id));
+            for(const a of hits){ a.cats=a.cats.filter(x=>x!==c.id); await saveMeta(a); }
+          }catch(e){ toast("Não deu para apagar a categoria toda. Tenta outra vez."); }
           if(S.fCat===c.id){ S.fCat="all"; savePrefs(); }
           renderCats(); renderAll();
         });
@@ -1214,9 +1345,18 @@ addEventListener("appinstalled",()=>{ installPrompt=null; $("btnInstall").hidden
   if(p.fState) S.fState=p.fState;
   if(p.fCat) S.fCat=p.fCat;
 
-  db=await openDB();
-  S.cats=await getAll("categories");
-  S.arts=await getAll("articles");
+  try{
+    db=await openDB();
+    $("tally").textContent="A abrir…";
+    await migrate();
+    await loadAll();
+  }catch(e){
+    $("tally").textContent="";
+    empty.hidden=false;
+    $("emptyTitle").textContent="Não deu para abrir a coleção";
+    $("emptyText").textContent="Fecha a app por completo e volta a abri-la. Os dados continuam guardados no telemóvel.";
+    return;
+  }
   if(S.fCat!=="all" && !S.cats.some(c=>c.id===S.fCat)) S.fCat="all";
 
   $("segState").querySelectorAll("button").forEach(b=>
@@ -1231,20 +1371,25 @@ addEventListener("appinstalled",()=>{ installPrompt=null; $("btnInstall").hidden
 async function backfillThumbs(){
   const pend=S.arts.filter(a=>a.photo&&!a.thumb);
   if(!pend.length) return;
-  let feitas=0;
+  const feitas=[];
   for(const a of pend){
     try{
-      const t=await makeThumb(a.photo);
-      if(!t) continue;
-      a.thumb=t;
-      await put("articles",a);
-      feitas++;
+      const foto=a.photo;
+      const t=await makeThumb(foto);
+      // Entretanto o artigo pode ter sido apagado ou ter recebido outra foto.
+      if(!t||!S.arts.includes(a)||a.photo!==foto||a.thumb) continue;
+      // Grava só se ninguém gravou uma miniatura primeiro (ex.: editar com foto nova).
+      const ok=await tx("thumbs","readwrite",st=>{
+        const s=st("thumbs"), g=s.getKey(a.id), r={gravou:false};
+        g.onsuccess=()=>{ if(g.result===undefined){ s.put({id:a.id,blob:t}); r.gravou=true; } };
+        return r;
+      });
+      if(ok.gravou&&S.arts.includes(a)&&a.photo===foto&&!a.thumb){ a.thumb=t; feitas.push(a.id); }
     }catch(e){ /* fica na foto grande */ }
   }
-  if(!feitas) return;
-  // Só aqui é que se trocam os URLs: revogar um blob que está a ser mostrado deixa a
-  // imagem em branco, por isso revoga-se e volta a desenhar-se sem paragem pelo meio.
-  for(const a of pend) if(a.thumb) dropURL(a.id);
+  if(!feitas.length) return;
+  // A miniatura que estava no ecrã era a foto grande: troca-se a URL e redesenha-se logo.
+  feitas.forEach(id=>dropURL(id,["t"]));
   renderGrid(); renderFoot();
 }
 
